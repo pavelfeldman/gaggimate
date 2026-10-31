@@ -6,6 +6,7 @@
   "scripts": {
     "build": "wasm/build.sh && tsc -p .",
     "build:ts": "tsc -p .",
+    "build:webui": "node scripts/build-webui.mjs",
     "watch": "tsc -p . --watch",
     "typecheck": "tsc -p . --noEmit",
     "test": "tsc -p . && node --test test/*.test.mjs",

@@ -119,6 +119,7 @@ add_executable(display
     ${REPO}/sim/web/ESPAsyncWebServer.cpp
     ${REPO}/sim/web/blescale_stub.cpp
     ${WASM}/display/SdlDriver.cpp
+    ${WASM}/display/WebTransport.cpp
     ${WASM}/display/display_wasm.cpp
     ${NANOPB_SOURCES}
     ${PLATFORM_SOURCES}
@@ -132,5 +133,5 @@ target_compile_definitions(display PRIVATE ${COMMON_DEFINES} GAGGIMATE_SIM DISAB
 target_compile_options(display PRIVATE ${COMMON_COMPILE_OPTIONS})
 target_link_libraries(display PRIVATE lvgl)
 target_link_options(display PRIVATE ${COMMON_LINK_OPTIONS} -sEXPORT_NAME=createDisplay
-    -sEXPORTED_FUNCTIONS=${COMMON_EXPORTS},_gm_display_prepare,_gm_display_framebuffer,_gm_display_frames,_gm_display_brightness,_gm_touch,_gm_scale_measurement,_gm_inspect_display,_gm_inspect_display_names,_gm_inspect_display_phase,_gm_inspect_display_profile)
+    -sEXPORTED_FUNCTIONS=${COMMON_EXPORTS},_gm_display_prepare,_gm_display_framebuffer,_gm_display_frames,_gm_display_brightness,_gm_touch,_gm_scale_measurement,_gm_inspect_display,_gm_inspect_display_names,_gm_inspect_display_phase,_gm_inspect_display_profile,_gm_web_open,_gm_web_write,_gm_web_end)
 set_target_properties(display PROPERTIES SUFFIX ".mjs" RUNTIME_OUTPUT_DIRECTORY ${OUT})

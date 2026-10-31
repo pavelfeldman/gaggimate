@@ -52,6 +52,42 @@ test('controller and display boot, detect the board and connect over the link', 
   assert.ok(sim.logs.controller.some(l => /Pro Rev 1\.1/i.test(l.text)), 'board autodetect logged');
 });
 
+// Runs virtual time until `promise` settles: the display serves web requests from its loop task.
+async function serve(sim, promise, maxMs = 2000) {
+  let result = null;
+  promise.then(v => (result = { v }), e => (result = { e }));
+  for (let t = 0; t < maxMs && !result; t += 20) {
+    sim.run(20);
+    await null;
+  }
+  assert.ok(result, 'no answer from the display');
+  if (result.e) throw result.e;
+  return result.v;
+}
+
+test('the web UI API and socket reach the display firmware web server', async () => {
+  const sim = await boot();
+  const res = await serve(sim, sim.web.request({ method: 'GET', url: '/api/settings' }));
+  assert.equal(res.status, 200);
+  assert.match(res.headers['content-type'], /json/);
+  assert.equal(JSON.parse(new TextDecoder().decode(res.body)).startupMode, 'standby');
+
+  const messages = [];
+  let closed = false;
+  const opened = new Promise(resolve => {
+    const ws = sim.web.openSocket('/ws', { open: () => resolve(ws), message: m => messages.push(JSON.parse(m)), close: () => (closed = true) });
+  });
+  const ws = await serve(sim, opened);
+  ws.send(JSON.stringify({ tp: 'req:profiles:list', rid: 'r1' }));
+  sim.run(1500);
+  assert.ok(messages.some(m => m.tp === 'evt:status'), 'status pushed to the socket');
+  const list = messages.find(m => m.tp === 'res:profiles:list' && m.rid === 'r1');
+  assert.ok(list?.profiles.length > 0, 'profile list answered');
+  ws.close();
+  sim.run(100);
+  assert.ok(closed);
+});
+
 test('a Default shot heats to target and stops on the scale at 36 g', async () => {
   const { sim, heated, finished, shot } = await pullShot();
   assert.equal(heated.mode, MODE_BREW);

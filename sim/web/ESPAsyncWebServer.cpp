@@ -24,6 +24,67 @@ void gm_web_pump() {
         s->pump();
 }
 
+// ---- transport -------------------------------------------------------------
+namespace {
+// Non-blocking BSD sockets on localhost (the desktop simulator).
+class SocketTransport : public AsyncWebTransport {
+  public:
+    int listen(uint16_t port) override {
+        port = port < 1024 ? 8080 : port; // avoid needing root for :80
+        int fd = socket(AF_INET, SOCK_STREAM, 0);
+        int yes = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        fcntl(fd, F_SETFL, O_NONBLOCK);
+        sockaddr_in addr{};
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.sin_port = htons(port);
+        if (bind(fd, (sockaddr *)&addr, sizeof(addr)) != 0 || ::listen(fd, 8) != 0) {
+            fprintf(stderr, "[sim-web] failed to listen on %u: %s\n", port, strerror(errno));
+            ::close(fd);
+            return -1;
+        }
+        fprintf(stderr, "[sim-web] WebUI server on http://localhost:%u/\n", port);
+        return fd;
+    }
+    int accept(int listener) override {
+        int fd = ::accept(listener, nullptr, nullptr);
+        if (fd < 0)
+            return -1;
+        fcntl(fd, F_SETFL, O_NONBLOCK);
+        int one = 1;
+        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+        return fd;
+    }
+    long receive(int conn, char *buf, size_t len) override {
+        ssize_t n = recv(conn, buf, len, 0);
+        if (n >= 0)
+            return n;
+        return errno == EAGAIN || errno == EWOULDBLOCK ? -1 : 0;
+    }
+    void send(int conn, const void *data, size_t len) override {
+        const char *p = (const char *)data;
+        size_t sent = 0;
+        while (sent < len) {
+            ssize_t n = ::send(conn, p + sent, len - sent, 0);
+            if (n > 0) {
+                sent += n;
+            } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
+                continue;
+            } else {
+                break;
+            }
+        }
+    }
+    void close(int handle) override { ::close(handle); }
+};
+
+SocketTransport g_socketTransport;
+AsyncWebTransport *g_transport = &g_socketTransport;
+} // namespace
+
+void gm_web_set_transport(AsyncWebTransport *transport) { g_transport = transport; }
+
 // ---- SHA1 + base64 (for the WebSocket handshake) --------------------------
 namespace {
 struct Sha1 {
@@ -125,20 +186,7 @@ std::string base64(const uint8_t *data, size_t len) {
     return out;
 }
 
-void sendAll(int fd, const void *data, size_t len) {
-    const char *p = (const char *)data;
-    size_t sent = 0;
-    while (sent < len) {
-        ssize_t n = ::send(fd, p + sent, len - sent, 0);
-        if (n > 0) {
-            sent += n;
-        } else if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
-            continue;
-        } else {
-            break;
-        }
-    }
-}
+void sendAll(int fd, const void *data, size_t len) { g_transport->send(fd, data, len); }
 
 void sendWsFrame(int fd, uint8_t opcode, const uint8_t *data, size_t len) {
     std::string frame;
@@ -298,22 +346,9 @@ AsyncStaticWebHandler &AsyncWebServer::serveStatic(const char *uri, FS &fs, cons
 void AsyncWebServer::begin() {
     if (_listenFd >= 0)
         return;
-    uint16_t port = _port < 1024 ? 8080 : _port; // avoid needing root for :80
-    _listenFd = socket(AF_INET, SOCK_STREAM, 0);
-    int yes = 1;
-    setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-    fcntl(_listenFd, F_SETFL, O_NONBLOCK);
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    addr.sin_port = htons(port);
-    if (bind(_listenFd, (sockaddr *)&addr, sizeof(addr)) != 0 || listen(_listenFd, 8) != 0) {
-        fprintf(stderr, "[sim-web] failed to listen on %u: %s\n", port, strerror(errno));
-        close(_listenFd);
-        _listenFd = -1;
+    _listenFd = g_transport->listen(_port);
+    if (_listenFd < 0)
         return;
-    }
-    fprintf(stderr, "[sim-web] WebUI server on http://localhost:%u/\n", port);
     g_servers.push_back(this);
 }
 
@@ -321,23 +356,16 @@ void AsyncWebServer::end() {
     if (_listenFd < 0)
         return;
     for (auto &c : _conns)
-        close(c.fd);
+        g_transport->close(c.fd);
     _conns.clear();
-    close(_listenFd);
+    g_transport->close(_listenFd);
     _listenFd = -1;
     g_servers.erase(std::remove(g_servers.begin(), g_servers.end(), this), g_servers.end());
 }
 
 void AsyncWebServer::acceptNew() {
-    while (true) {
-        int fd = accept(_listenFd, nullptr, nullptr);
-        if (fd < 0)
-            break;
-        fcntl(fd, F_SETFL, O_NONBLOCK);
-        int one = 1;
-        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+    for (int fd; (fd = g_transport->accept(_listenFd)) >= 0;)
         _conns.push_back(Conn{fd});
-    }
 }
 
 void AsyncWebServer::pump() {
@@ -349,16 +377,11 @@ void AsyncWebServer::pump() {
         char tmp[8192];
         bool dead = false;
         while (true) {
-            ssize_t n = recv(c.fd, tmp, sizeof(tmp), 0);
+            long n = g_transport->receive(c.fd, tmp, sizeof(tmp));
             if (n > 0) {
                 c.inbuf.append(tmp, n);
-            } else if (n == 0) {
-                dead = true;
-                break;
             } else {
-                if (errno == EAGAIN || errno == EWOULDBLOCK)
-                    break;
-                dead = true;
+                dead = n == 0;
                 break;
             }
         }
@@ -374,7 +397,7 @@ void AsyncWebServer::pump() {
                 _ws->_clients.erase(std::remove(_ws->_clients.begin(), _ws->_clients.end(), c.client), _ws->_clients.end());
                 delete c.client;
             }
-            close(c.fd);
+            g_transport->close(c.fd);
             _conns.erase(_conns.begin() + i);
         } else {
             i++;

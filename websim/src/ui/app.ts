@@ -6,6 +6,7 @@ import { MachineView } from './MachineView.js';
 import { DisplayView } from './DisplayView.js';
 import { LineChart } from './Charts.js';
 import type { ChartSpec } from './Charts.js';
+import { WebUiHost } from './WebUiHost.js';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const MODES = ['Standby', 'Brew', 'Steam', 'Water', 'Grind'];
@@ -315,27 +316,45 @@ async function boot(): Promise<void> {
   await next.start();
   next.onLog = side => (logDirty[side] = true);
   sim = next;
+  webUi.attach(next);
   displayView.reset();
   buildControls();
 }
 
 const machineView = new MachineView($('machine-view'));
+const webUi = new WebUiHost();
+
+// The web UI bundle is a separate build (npm run build:webui); without it the button says how to get it.
+async function setupWebUiButton(): Promise<void> {
+  const b = $<HTMLButtonElement>('webui');
+  const url = webUi.url();
+  const built = await fetch(url, { method: 'HEAD' }).then(r => r.ok, () => false);
+  if (!built) {
+    b.disabled = true;
+    b.title = 'The web UI is not built: run npm run build:webui in websim/';
+    return;
+  }
+  b.addEventListener('click', () => window.open(url, `gaggimate-webui-${webUi.session}`));
+}
 const displayView = new DisplayView($('display') as HTMLCanvasElement, () => sim);
 
 async function main(): Promise<void> {
   buildSpeed();
   buildTabs();
   $('reset').addEventListener('click', () => void boot());
+  void setupWebUiButton();
   seedProfiles = await (await fetch(new URL('../../wasm/seed-profiles.json', import.meta.url))).json();
   await boot();
   let last = performance.now();
+  let lastFrame = 0;
   let slowTick = 0;
-  const frame = (now: number) => {
-    // Background tabs throttle rAF to ~1 Hz; catch up on up to a second of real time per frame.
+  const advance = () => {
+    const now = performance.now();
+    // Catch up on at most a second of real time per call.
     const real = Math.min(1000, now - last);
     last = now;
     if (sim && speed > 0) {
-      const budgetEnd = performance.now() + 40;
+      const budgetEnd = now + 40;
       // A finger on the screen runs at device speed, so taps and holds mean what they would on the machine.
       let todo = real * (displayView.pressed ? Math.min(speed, 1) : speed);
       while (todo >= 1 && performance.now() < budgetEnd) {
@@ -344,6 +363,17 @@ async function main(): Promise<void> {
         todo -= chunk;
       }
     }
+  };
+  // A background tab gets no animation frames and 1 Hz timers, but the machine has to keep running
+  // while the web UI is open in another tab: a worker's timer, which isn't throttled, steps the
+  // clock whenever frames stop.
+  const metronome = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 50)'], { type: 'text/javascript' })));
+  metronome.onmessage = () => {
+    if (performance.now() - lastFrame > 200) advance();
+  };
+  const frame = (now: number) => {
+    lastFrame = performance.now();
+    advance();
     if (sim) {
       displayView.draw();
       machineView.update(sim);

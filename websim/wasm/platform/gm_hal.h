@@ -23,6 +23,10 @@ void gm_hal_link_send(const uint8_t *data, int length);
 void gm_hal_link_request(int request); // GM_LINK_ADVERTISE / GM_LINK_CONNECT / GM_LINK_DISCONNECT
 void gm_hal_link_low_latency(int active);
 
+// Display web server: bytes sent on, and the end of, an in-memory connection (display/WebTransport.cpp).
+void gm_hal_web_send(int conn, const uint8_t *data, int length);
+void gm_hal_web_close(int conn);
+
 // Firmware-to-host events that have no hardware equivalent (scale tare, telemetry).
 void gm_hal_event(const char *name, double value);
 

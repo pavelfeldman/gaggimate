@@ -12,6 +12,8 @@ export interface GmHost {
   linkSend(bytes: Uint8Array): void;
   linkRequest(request: number): void;
   linkLowLatency(active: boolean): void;
+  webSend(conn: number, bytes: Uint8Array): void;
+  webClose(conn: number): void;
   event(name: string, value: number): void;
   log(level: string, line: string): void;
 }
@@ -54,6 +56,9 @@ export interface DisplayModule extends GmModule {
   _gm_inspect_display_names(): number;
   _gm_inspect_display_phase(): number;
   _gm_inspect_display_profile(): number;
+  _gm_web_open(): number;
+  _gm_web_write(conn: number, ptr: number, length: number): void;
+  _gm_web_end(conn: number): void;
 }
 
 type Factory<M> = (moduleArg: { gmHost: GmHost; print?: (s: string) => void; printErr?: (s: string) => void }) => Promise<M>;

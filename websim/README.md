@@ -11,6 +11,8 @@ simulated (TypeScript). See [MIGRATION.md](MIGRATION.md) for how it's put togeth
 - **Top right:** the display firmware's own screen. Click to touch.
 - **Bottom right:** live values, then tabs for charts (the last shot, or a rolling window), the
   firmware's internals (PID terms, pressure controller, process state) and both boards' serial logs.
+- **Web UI** (header button): the GaggiMate web UI from `web/`, in its own tab, talking to the
+  simulated display's real web server and WebSocket API.
 
 ## Setup
 
@@ -47,6 +49,20 @@ npm run build
 `npm run build` runs `wasm/build.sh` (both `.wasm` modules into `dist/wasm/`) and `tsc`. After
 changing only TypeScript, `npm run build:ts` is enough.
 
+The Web UI button needs the web UI built for the simulator, from `web/`'s own dependencies:
+
+```bash
+(cd ../web && npm ci)
+```
+
+```bash
+npm run build:webui
+```
+
+That builds `web/` with its Vite config into `dist/webui/`, with relative asset paths, routes in the
+URL fragment (`#/settings`) and a small bridge that sends `/api` requests and the `/ws` socket to the
+simulator tab instead of the network.
+
 ## Run
 
 ```bash
@@ -57,14 +73,19 @@ Open http://localhost:8765/. The display boots to standby: tap it to wake, wait 
 reach temperature (Max speed helps), then press play on the screen or flip the brew switch.
 Pressing the screen runs the clock at 1× so taps register as they would on the device.
 
+**Web UI** opens the web UI in a new tab, connected to this simulator: the dashboard, profiles,
+settings and shot history all come from the display firmware. The machine keeps running while the
+simulator tab is in the background; closing or reloading the simulator tab disconnects it until the
+simulator is back.
+
 ## Test
 
 ```bash
 npm test
 ```
 
-Runs `test/sim.test.mjs` headless in Node against the same `.wasm` files: boot and link, a full
-Default shot, puck density and erosion. To print a whole shot as a table:
+Runs `test/sim.test.mjs` headless in Node against the same `.wasm` files: boot and link, the web
+server's HTTP API and WebSocket, a full Default shot, puck density and erosion. To print a whole shot as a table:
 
 ```bash
 node scripts/shot.mjs
@@ -79,7 +100,7 @@ Environment: `DENSITY` (g/ml), `EROSION`, `HEAT_S` (heat-up seconds before the s
 npm run publish:pages
 ```
 
-Puts `index.html`, the compiled TypeScript and `dist/wasm` on the `gh-pages` branch of `origin`
-(force-pushed, one generated commit) for GitHub Pages at `https://<owner>.github.io/<repo>/`. Run
-`npm run build` first. The first time, set the repository's Pages source to the `gh-pages` branch
+Puts `index.html`, the compiled TypeScript, `dist/wasm` and `dist/webui` on the `gh-pages` branch of
+`origin` (force-pushed, one generated commit) for GitHub Pages at `https://<owner>.github.io/<repo>/`.
+Run `npm run build` and `npm run build:webui` first. The first time, set the repository's Pages source to the `gh-pages` branch
 if GitHub doesn't pick it up on its own.

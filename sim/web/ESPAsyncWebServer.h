@@ -232,3 +232,18 @@ class AsyncWebServer {
 
 // Pump every running AsyncWebServer once (call from the simulator main loop).
 void gm_web_pump();
+
+// Byte-stream I/O under the server. The desktop simulator listens on a localhost BSD socket; the
+// web simulator (websim/) installs in-memory connections from the browser tab running the web UI.
+class AsyncWebTransport {
+  public:
+    virtual ~AsyncWebTransport() = default;
+    virtual int listen(uint16_t port) = 0;                      // listening handle, or -1
+    virtual int accept(int listener) = 0;                       // next pending connection, or -1
+    virtual long receive(int conn, char *buf, size_t len) = 0;  // > 0 bytes read, 0 peer closed, -1 nothing yet
+    virtual void send(int conn, const void *data, size_t len) = 0;
+    virtual void close(int handle) = 0;
+};
+
+// Replaces the socket transport; call before any server's begin().
+void gm_web_set_transport(AsyncWebTransport *transport);

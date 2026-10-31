@@ -12,6 +12,7 @@ import { BleLink } from './BleLink.js';
 import type { LinkParams, Side } from './BleLink.js';
 import { loadModule, deliver, Inspector } from './WasmBoard.js';
 import type { ControllerModule, DisplayModule, GmHost, LogLine } from './WasmBoard.js';
+import { WebServerBridge } from './WebServerBridge.js';
 
 // GaggiMate Pro Rev 1.1 pins (lib/GaggiMateController/src/ControllerConfig.h)
 export const PIN = { HEATER: 14, PUMP: 9, PUMP_SENSE: 21, VALVE: 10, ALT: 47, BREW_BTN: 38, STEAM_BTN: 48, DETECT: 11 } as const;
@@ -69,6 +70,8 @@ export class Simulation {
   readonly machine: Machine;
   readonly scale: Scale;
   readonly link: BleLink;
+  /** HTTP and WebSocket to the display's web server (what the web UI talks to). */
+  readonly web = new WebServerBridge(() => this.display);
   controller!: ControllerModule;
   display!: DisplayModule;
   controllerInspector!: Inspector<ControllerModule>;
@@ -131,6 +134,8 @@ export class Simulation {
       linkSend: bytes => this.link.send(side, bytes),
       linkRequest: request => this.link.request(side, request, this.nowMs),
       linkLowLatency: active => void (this.link.lowLatency = active),
+      webSend: (conn, bytes) => this.web.received(conn, bytes),
+      webClose: conn => this.web.closed(conn),
       event: name => {
         if (name === 'scale:tare') this.scale.requestTare(this.nowMs);
       },

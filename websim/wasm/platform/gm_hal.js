@@ -10,6 +10,8 @@ addToLibrary({
   gm_hal_link_send: (ptr, length) => Module.gmHost.linkSend(HEAPU8.slice(ptr, ptr + length)),
   gm_hal_link_request: request => Module.gmHost.linkRequest(request),
   gm_hal_link_low_latency: active => Module.gmHost.linkLowLatency(!!active),
+  gm_hal_web_send: (conn, ptr, length) => Module.gmHost.webSend(conn, HEAPU8.slice(ptr, ptr + length)),
+  gm_hal_web_close: conn => Module.gmHost.webClose(conn),
   gm_hal_log__deps: ['$UTF8ToString'],
   gm_hal_log: (level, ptr, length) => Module.gmHost.log(String.fromCharCode(level), UTF8ToString(ptr, length)),
   gm_hal_event__deps: ['$UTF8ToString'],

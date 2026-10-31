@@ -19,9 +19,9 @@
 MDNSResponder MDNS;
 WiFiClass WiFi;
 
-// No network stack on the simulated board: the web UI server's socket() fails, so it logs that it
-// isn't listening and the rest of the firmware carries on (Emscripten's socket emulation would
-// otherwise need a WebSocket proxy).
+// No network stack on the simulated board: the web server listens on in-memory connections
+// (WebTransport.cpp) and never opens a socket. This keeps Emscripten's socket emulation, which
+// would need a WebSocket proxy, out of the build.
 extern "C" int socket(int, int, int) {
     errno = ENETDOWN;
     return -1;

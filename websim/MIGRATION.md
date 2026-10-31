@@ -55,6 +55,16 @@ is simulated. This started as the plan and now records what was built; see `READ
   modules. Only the transport is new: `WasmLinkTransport` hands each encoded nanopb datagram to the
   host (`gm_hal_link_send`), which models BLE connection events and delivers it to the peer module
   (`gm_link_receive`). Advertising, scanning and connection state are host-driven too.
+* **Web UI.** The display's `WebUIPlugin` and `WebSocketHandler` run on the desktop simulator's
+  `ESPAsyncWebServer` (`sim/web`), listening on in-memory connections instead of a socket
+  (`display/WebTransport.cpp`). `src/host/WebServerBridge.ts` writes raw HTTP/1.1 and WebSocket
+  bytes into them (`gm_web_open/write/end`) and parses the replies (`gm_hal_web_send/close`); the
+  server serves them from the loop task between `loop()` iterations, as `sim/main.cpp` pumps its
+  sockets. The web UI itself (`web/`, built into `dist/webui` by `scripts/build-webui.mjs`) runs in
+  its own tab: `src/webui/bridge.ts`, inlined ahead of the app, sends its `fetch('/api/…')` calls
+  and `/ws` socket over a `BroadcastChannel` to the simulator tab (`src/ui/WebUiHost.ts`), and
+  `webui/router.ts` keeps preact-iso's routes in the URL fragment so a static host can serve it
+  from a subdirectory.
 
 ## 3. Build
 
@@ -90,9 +100,10 @@ everything it doesn't replace (WString, Print, Stream, FS, Preferences, ArduinoJ
 | `Wire.h`, `SoftWire.h`, `SPI.h`, `ExtensionIOXL9555.hpp` | buses, IO expander | Empty bus: every probe NACKs, so the LED/ToF accessory, gear-pump add-on, hardware scale and IO expander report absent and the firmware's fallbacks run. |
 | `WasmBleTransport.{h,cpp}` | `ble/BleClientTransport`, `ble/BleServerTransport` | `BleServerTransport::init` advertises; `BleClientTransport::connectToServer` blocks (up to 5 s) for the host's connection event; `setLowLatency` switches the host's connection interval. Same method surface the facades call. |
 | `gm_hal.{h,js}` | — | The import table: pins, ADC, thermocouple, random, link send/request/low-latency, events, logs; forwards to `Module.gmHost`. |
-| `arduino_main.cpp` | Arduino's `app_main` | `gm_boot()` creates `loopTask`: `setup()`, then `loop()` forever. |
+| `arduino_main.cpp` | Arduino's `app_main` | `gm_boot()` creates `loopTask`: `setup()`, then `loop()` forever, each followed by the board's `gm_after_loop()` (the display pumps its web server there). |
 | `controller_inspect.cpp`, `display/display_wasm.cpp` | — | Read-only getters for the Internals panel (PID terms, pressure controller, process state). `display_wasm.cpp` also takes scale readings and touches. |
 | `display/SdlDriver.{h,cpp}` | `sim/driver/SdlDriver` | Same class name; LVGL flushes into a 480×480 RGB565 framebuffer the host blits to a canvas; touches come from the host. |
+| `display/WebTransport.cpp` | the TCP stack under `sim/web/ESPAsyncWebServer` | In-memory connections the host opens and writes to; the server's replies go out through `gm_hal_web_send`/`gm_hal_web_close`. |
 
 ## 5. Firmware touch points
 
@@ -115,8 +126,11 @@ Build-level choices, not source edits:
 * **Logs bypass stdio.** musl's `__stdio_write` can spin on a zero-length `writev` when the first
   stdout write happens inside a fiber and the JS side doesn't write synchronously. `Serial` and
   `ESP_LOGx` go straight to the host instead.
-* **`socket()` fails with `ENETDOWN`** in the display module so the web server's `listen` doesn't
-  pull in Node's `ws` package; there is no network.
+* **`sim/web/ESPAsyncWebServer` has a transport seam** (`AsyncWebTransport`,
+  `gm_web_set_transport`): BSD sockets by default for `display-sim`, in-memory connections here.
+* **`socket()` fails with `ENETDOWN`** in the display module. Nothing calls it once the in-memory
+  transport is installed; defining it keeps Emscripten's socket emulation, which needs Node's `ws`
+  package, out of the build.
 * **Wi-Fi credentials are seeded** before boot (`gm_display_prepare`), as `sim/main.cpp` does, so
   the display starts in station mode, not the captive portal.
 
@@ -127,7 +141,7 @@ Build-level choices, not source edits:
 | Concurrency | dual-core preemptive FreeRTOS | single-threaded cooperative fibers | Same periods and ordering; cross-core races can't be reproduced. |
 | BLE radio | NimBLE GATT | `WasmLinkTransport` + host link model: 600 ms scan, 400 ms connect, connection events every 10 ms while low latency is on and 40 ms otherwise, optional loss, forced drop | Everything above `Transport` is the real stack. |
 | BLE scale | `BLEScalePlugin` + vendor drivers (device-only) | Host scale (10 Hz, 0.1 g, 120 ms latency, noise) calls `Controller::onVolumetricMeasurement(g, BLUETOOTH)`; tares on `controller:brew:prestart` and `controller:grind:start`, like the plugin | Vendor BLE code sits outside the control loop. |
-| Network | Wi-Fi, web UI, MQTT, HomeKit, mDNS, OTA | compiled out or inert (no sockets) | Not part of machine control. |
+| Network | Wi-Fi, web server, MQTT, HomeKit, mDNS, OTA | Web server on in-memory connections from the web UI tab (Web UI button); the rest compiled out or inert | The web UI and its API are the real ones; nothing else on the network takes part in machine control. |
 | Panel | LilyGo / Waveshare / AMOLED drivers | framebuffer `SdlDriver` → canvas | Same LVGL UI, different flush target. |
 | Logs | UART | Serial/ESP_LOG lines in the Serial logs tab | Same text, different sink. |
 
@@ -170,6 +184,8 @@ Most parameters are sliders in the UI; defaults approximate a Gaggia Classic Pro
    at 36 g with the scale ending within 35–39.5 g.
 3. Puck density: 0.9 g/ml pulls at least 1.3× slower than 0.7 g/ml (about 41 s vs 12 s).
 4. Erosion: puck resistance falls and cup flow rises during the shot.
+5. Web server: `GET /api/settings` answers JSON from the display, and a `/ws` session gets
+   `evt:status` pushes and answers `req:profiles:list`.
 
 `node scripts/shot.mjs` prints a whole shot as a table (env `DENSITY`, `EROSION`, `HEAT_S`,
 `LOGS`) — about 190 s simulated in under a second. In the browser: wake by tapping the screen,

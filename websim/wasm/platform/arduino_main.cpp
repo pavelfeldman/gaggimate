@@ -5,11 +5,16 @@
 void setup();
 void loop();
 
+// Board-specific work between loop() iterations: the display pumps its web server here
+// (display/WebTransport.cpp), as sim/main.cpp does after each loop().
+__attribute__((weak)) void gm_after_loop() {}
+
 namespace {
 void loopTask(void *) {
     setup();
     for (;;) {
         loop();
+        gm_after_loop();
     }
 }
 } // namespace
