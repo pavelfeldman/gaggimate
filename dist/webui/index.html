@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>"use strict";(()=>{var k=Object.defineProperty;var O=(s,t,e)=>t in s?k(s,t,{enumerable:!0,configurable:!0,writable:!0,value:e}):s[t]=e;var n=(s,t,e)=>O(s,typeof t!="symbol"?t+"":t,e);var m="gaggimate-websim";var S=2e4,T=5e3,C=3e3,d=new URLSearchParams(location.search).get("sim")??"",p=new BroadcastChannel(m),c=s=>p.postMessage(s),w=()=>Math.random().toString(36).slice(2)+Date.now().toString(36),r=new Map,a=new Map,h=null;p.onmessage=s=>{let t=s.data;if(t.sim===d)switch(t.kind){case"ready":if(h!==null&&h!==t.boot)for(let e of[...a.values()])e.finish(1006);h=t.boot,y(!1);break;case"fetch-done":{let e=r.get(t.id);r.delete(t.id);let i=t.status===204||t.status===304;e?.resolve(new Response(i?null:t.body,{status:t.status,headers:t.headers}));break}case"fetch-failed":r.get(t.id)?.reject(new TypeError(`Failed to fetch: ${t.message}`)),r.delete(t.id);break;case"ws-opened":a.get(t.id)?.opened();break;case"ws-message":a.get(t.id)?.message(t.data);break;case"ws-closed":a.get(t.id)?.finish(1e3);break}};var I=window.fetch.bind(window);window.fetch=async(s,t)=>{let e=new Request(s,t),i=new URL(e.url);if(i.origin!==location.origin||!i.pathname.startsWith("/api/"))return I(s,t);let E=e.method==="GET"||e.method==="HEAD"?null:await e.arrayBuffer(),g=w();return new Promise((v,u)=>{let l=()=>{clearTimeout(N),r.delete(g)},N=setTimeout(()=>{l(),u(new TypeError("Failed to fetch: the simulator did not answer"))},S);r.set(g,{resolve:f=>(l(),v(f)),reject:f=>(l(),u(f))}),e.signal.addEventListener("abort",()=>{l(),u(new DOMException("The operation was aborted.","AbortError"))}),c({sim:d,kind:"fetch",id:g,method:e.method,url:i.pathname+i.search,headers:Object.fromEntries(e.headers),body:E})})};var x=window.WebSocket,o=class extends EventTarget{constructor(e){super();n(this,"CONNECTING",0);n(this,"OPEN",1);n(this,"CLOSING",2);n(this,"CLOSED",3);n(this,"url");n(this,"protocol","");n(this,"extensions","");n(this,"bufferedAmount",0);n(this,"binaryType","blob");n(this,"readyState",0);n(this,"onopen",null);n(this,"onmessage",null);n(this,"onerror",null);n(this,"onclose",null);n(this,"id",w());this.url=e.href,a.set(this.id,this),c({sim:d,kind:"ws-open",id:this.id,path:e.pathname}),setTimeout(()=>{this.readyState===this.CONNECTING&&(this.fire(new Event("error")),this.finish(1006))},T)}send(e){if(this.readyState!==this.OPEN)throw new DOMException("WebSocket is not open","InvalidStateError");c({sim:d,kind:"ws-send",id:this.id,data:String(e)})}close(){this.readyState>=this.CLOSING||(c({sim:d,kind:"ws-close",id:this.id}),this.finish(1e3))}opened(){this.readyState===this.CONNECTING&&(this.readyState=this.OPEN,this.fire(new Event("open")))}message(e){this.readyState===this.OPEN&&this.fire(new MessageEvent("message",{data:e}))}finish(e){this.readyState!==this.CLOSED&&(this.readyState=this.CLOSED,a.delete(this.id),this.fire(new CloseEvent("close",{code:e,wasClean:e===1e3})))}fire(e){let i=this[`on${e.type}`];typeof i=="function"&&i.call(this,e),this.dispatchEvent(e)}};n(o,"CONNECTING",0),n(o,"OPEN",1),n(o,"CLOSING",2),n(o,"CLOSED",3);function b(s,t){let e=new URL(s,location.href);return e.host===location.host&&e.pathname==="/ws"?new o(e):new x(s,t)}Object.assign(b,{CONNECTING:0,OPEN:1,CLOSING:2,CLOSED:3});window.WebSocket=b;function y(s){let t=document.getElementById("websim-banner");if(!s)return t?.remove();if(t||!document.body)return;let e=document.createElement("div");e.id="websim-banner",e.textContent="No simulator is serving this tab. Open the web UI from the GaggiMate simulator\u2019s Web UI button.",e.style.cssText="position:fixed;left:16px;right:16px;bottom:16px;z-index:99999;padding:12px 16px;border-radius:8px;background:#b8572b;color:#fff;font:14px/1.4 system-ui,sans-serif",document.body.append(e)}c({sim:d,kind:"hello"});setTimeout(()=>h===null&&y(!0),C);})();
+</script>
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- iOS PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="GaggiMate" />
+
+    <link rel="manifest" href="./app.webmanifest" />
+    <link rel="shortcut icon" type="image/svg+xml" href="./gm.svg" />
+    <link rel="apple-touch-icon" href="./gm.png" />
+    <title>Gaggimate Web UI</title>
+    <script>
+      // Apply the saved theme synchronously before any module loads, so we
+      // never flash the default-light theme on a fresh page load.
+      (function () {
+        try {
+          var key = 'gaggimate-daisyui-theme';
+          var allowed = ['light', 'dark', 'coffee', 'nord'];
+          var saved = localStorage.getItem(key);
+          var theme = allowed.indexOf(saved) >= 0 ? saved : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" crossorigin src="./assets/DO7lmTTr.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/BU9pTh30.css">
+  </head>
+  <body class="bg-base-100">
+    <div id="app"></div>
+  </body>
+</html>

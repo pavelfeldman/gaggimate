@@ -1,0 +1,1 @@
+import{j as i,u as o}from"./DO7lmTTr.js";function d({size:a=8}){const{_:n}=i();return o("span",{className:`loading loading-spinner ${{4:"loading-xs",8:"loading-md",12:"loading-lg",16:"loading-xl"}[a]||"loading-md"}`,role:"status","aria-label":n({id:"yQE2r9"})})}export{d as S};
