@@ -3,6 +3,7 @@
 import { Simulation } from '../host/Simulation.js';
 import type { Basket, MachineParams } from '../physics/Machine.js';
 import { MachineView } from './MachineView.js';
+import { Machine3DView } from './Machine3DView.js';
 import { DisplayView } from './DisplayView.js';
 import { LineChart } from './Charts.js';
 import type { ChartSpec } from './Charts.js';
@@ -321,7 +322,19 @@ async function boot(): Promise<void> {
   buildControls();
 }
 
-const machineView = new MachineView($('machine-view'));
+const machineView = createMachineView($('machine-view'));
+
+// The 3D machine needs WebGL; without it the flat schematic stands in.
+function createMachineView(container: HTMLElement): { update(sim: Simulation): void } {
+  try {
+    return new Machine3DView(container);
+  } catch (e) {
+    console.warn('No WebGL, showing the machine schematic instead', e);
+    container.replaceChildren();
+    container.classList.remove('machine-3d');
+    return new MachineView(container);
+  }
+}
 const webUi = new WebUiHost();
 
 // The web UI bundle is a separate build (npm run build:webui); without it the button says how to get it.

@@ -67,6 +67,13 @@
       section.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
       h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
       #machine svg { width: 100%; height: auto; display: block; }
+      .machine-3d { position: relative; width: 100%; aspect-ratio: 4 / 5; touch-action: none; }
+      .machine-3d canvas { display: block; cursor: grab; }
+      .machine-3d canvas:active { cursor: grabbing; }
+      .m3d-legend { position: absolute; left: 0; right: 0; top: 2px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; color: var(--muted); font-size: 11px; pointer-events: none; }
+      .m3d-legend span { display: inline-flex; align-items: center; gap: 5px; }
+      .m3d-legend i { width: 8px; height: 8px; border-radius: 50%; }
+      .m3d-hint { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; color: var(--muted); font-size: 11px; pointer-events: none; }
       .controls { display: grid; gap: 10px; margin-top: 10px; }
       .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
       .slider { display: grid; grid-template-columns: 112px 1fr 64px; align-items: center; gap: 8px; }
@@ -141,6 +148,9 @@
         </section>
       </div>
     </main>
+    <script type="importmap">
+      { "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+    </script>
     <script type="module" src="dist/src/ui/app.js"></script>
   </body>
 </html>

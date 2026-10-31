@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Publishes the simulator as a static site: index.html, the compiled TypeScript, dist/wasm and the
-# web UI (dist/webui) go to the gh-pages branch of a remote (default: origin), which GitHub Pages
-# serves at https://<owner>.github.io/<repo>/. The branch is a single generated commit, replaced
-# (force-pushed) on every publish. Needs dist/wasm from `npm run build` and dist/webui from
-# `npm run build:webui`.
+# Publishes the simulator as a static site: index.html, the compiled TypeScript, dist/wasm, the web
+# UI (dist/webui) and the three.js files the 3D machine loads go to the gh-pages branch of a remote
+# (default: origin), which GitHub Pages serves at https://<owner>.github.io/<repo>/. The branch is a
+# single generated commit, replaced (force-pushed) on every publish. Needs dist/wasm from
+# `npm run build`, dist/webui from `npm run build:webui` and node_modules from `npm install`.
 set -euo pipefail
 
 SIM="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,6 +27,11 @@ cp "$SIM/index.html" "$SITE/"
 rsync -a --include='*/' --include='*.js' --exclude='*' "$SIM/dist/src/" "$SITE/dist/src/"
 rsync -a "$SIM/dist/wasm/" "$SITE/dist/wasm/"
 rsync -a "$SIM/dist/webui/" "$SITE/dist/webui/"
+# three.js, at the paths the import map in index.html points to
+for f in build/three.module.js examples/jsm/controls/OrbitControls.js examples/jsm/environments/RoomEnvironment.js; do
+  mkdir -p "$SITE/node_modules/three/$(dirname "$f")"
+  cp "$SIM/node_modules/three/$f" "$SITE/node_modules/three/$f"
+done
 touch "$SITE/.nojekyll" # serve files as they are, without a Jekyll pass
 
 cd "$SITE"

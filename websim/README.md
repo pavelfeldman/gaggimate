@@ -5,9 +5,15 @@ Gaggia Classic Pro in the browser. The display's LVGL UI, the controller's PID, 
 PSM pump control and the nanopb link are the C++ in this repo; only the hardware under them is
 simulated (TypeScript). See [MIGRATION.md](MIGRATION.md) for how it's put together.
 
-- **Left:** the machine: tank, pump, OPV, pressure sensor, boiler and heater, 3-way valve, group,
-  headspace, puck, cup on a scale, drip tray. Below it are the switches and the puck and machine
-  sliders.
+- **Left:** the machine, a Gaggia Classic Pro in 3D (three.js) that you can rotate and zoom, laid
+  out as in Gaggia's parts diagram: the tank in the base, the pump upright in the rear left corner
+  with the OPV on top, the brass boiler on the group, the solenoid dumping into the drip tray. The
+  body is see-through and the group and portafilter are glass, so you see the water, the heater
+  glowing, the puck wetting from the top, headspace water, coffee streams and the cup filling.
+  Readings glow on the parts themselves, coloured by what they measure: temperature red (boiler,
+  brew water), pressure green (pump), water blue (tank, drip tray), coffee amber (scale), puck
+  brown. Without WebGL it falls back to a flat schematic. Below it are the switches and the puck
+  and machine sliders.
 - **Top right:** the display firmware's own screen. Click to touch.
 - **Bottom right:** live values, then tabs for charts (the last shot, or a rolling window), the
   firmware's internals (PID terms, pressure controller, process state) and both boards' serial logs.
