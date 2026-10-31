@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GaggiMate Simulator</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        --bg: #f4f2ee;
+        --panel: #ffffff;
+        --ink: #1d1b19;
+        --muted: #6f6a63;
+        --line: #e2ddd5;
+        --accent: #b8572b;
+        --good: #2f8f5b;
+        --warn: #c8891a;
+        --bad: #c0392b;
+        --water: #3d7fd6;
+        --coffee: #5a3a22;
+        --chart-grid: #ece8e1;
+        --s1: #2f6fd0;
+        --s2: #d0612f;
+        --s3: #2f9a6b;
+        --s4: #8a55c9;
+        --s5: #c8891a;
+        --s6: #888;
+        --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --bg: #141312;
+          --panel: #1d1c1a;
+          --ink: #ece8e2;
+          --muted: #9b958c;
+          --line: #2f2d2a;
+          --chart-grid: #2a2826;
+          --s6: #9a958d;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --bg: #141312;
+        --panel: #1d1c1a;
+        --ink: #ece8e2;
+        --muted: #9b958c;
+        --line: #2f2d2a;
+        --chart-grid: #2a2826;
+        --s6: #9a958d;
+        color-scheme: dark;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; }
+      header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+      header h1 { font-size: 15px; margin: 0 8px 0 0; letter-spacing: 0.01em; }
+      header .clock { font-family: var(--mono); color: var(--muted); min-width: 120px; }
+      .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+      .seg button { border: 0; border-right: 1px solid var(--line); border-radius: 0; }
+      .seg button:last-child { border-right: 0; }
+      button { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+      button:hover { border-color: var(--muted); }
+      button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+      main { display: grid; grid-template-columns: minmax(340px, 420px) 1fr; gap: 14px; padding: 14px 16px; align-items: start; }
+      @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+      section.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+      h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+      #machine svg { width: 100%; height: auto; display: block; }
+      .controls { display: grid; gap: 10px; margin-top: 10px; }
+      .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .slider { display: grid; grid-template-columns: 112px 1fr 64px; align-items: center; gap: 8px; }
+      .slider label { color: var(--muted); }
+      .slider output { font-family: var(--mono); text-align: right; }
+      input[type='range'] { width: 100%; accent-color: var(--accent); }
+      select { font: inherit; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+      .right { display: grid; gap: 14px; min-width: 0; }
+      .top { display: grid; grid-template-columns: minmax(240px, 380px) 1fr; gap: 14px; }
+      @media (max-width: 760px) { .top { grid-template-columns: 1fr; } }
+      .panel-wrap { aspect-ratio: 1; width: 100%; max-width: 380px; margin: 0 auto; border-radius: 50%; background: #000; box-shadow: 0 0 0 10px #2b2a28, 0 0 0 11px #444; overflow: hidden; }
+      #display { width: 100%; height: 100%; display: block; border-radius: 50%; touch-action: none; cursor: pointer; }
+      .hint { color: var(--muted); font-size: 12px; text-align: center; margin-top: 16px; }
+      .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; align-content: start; }
+      .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+      .kpi .k { color: var(--muted); font-size: 11px; }
+      .kpi .v { font-family: var(--mono); font-size: 17px; }
+      .kpi .v small { font-size: 11px; color: var(--muted); }
+      .charts { display: grid; gap: 10px; }
+      .chart { border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+      .chart canvas { width: 100%; height: 170px; display: block; }
+      .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); margin: 2px 0 4px; }
+      .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+      .legend i.dash { background-image: linear-gradient(90deg, currentColor 50%, transparent 50%); background-size: 6px 3px; }
+      .tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+      table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
+      td { padding: 2px 6px; border-bottom: 1px solid var(--line); }
+      td:first-child { color: var(--muted); font-family: system-ui, sans-serif; }
+      .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+      pre.log { margin: 0; height: 320px; overflow: auto; font: 11px/1.35 var(--mono); background: var(--bg); border-radius: 8px; padding: 8px; white-space: pre-wrap; }
+      .logs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 760px) { .logs { grid-template-columns: 1fr; } }
+      .note { color: var(--muted); font-size: 12px; }
+      .loading { padding: 40px; text-align: center; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>GaggiMate Simulator</h1>
+      <span class="clock" id="clock">booting…</span>
+      <span class="seg" id="speed"></span>
+      <button id="reset" title="Reload both boards from a fresh flash">Reset</button>
+      <span class="note">Real firmware (display + controller) compiled to WebAssembly · physics in TypeScript</span>
+    </header>
+    <main>
+      <section class="card" id="machine">
+        <h2>Machine</h2>
+        <div id="machine-view"></div>
+        <div class="controls" id="machine-controls"></div>
+      </section>
+      <div class="right">
+        <div class="top">
+          <section class="card">
+            <h2>GaggiMate display</h2>
+            <div class="panel-wrap"><canvas id="display" width="480" height="480"></canvas></div>
+            <div class="hint">Click to touch. The UI is the firmware's own LVGL screens.</div>
+          </section>
+          <section class="card">
+            <h2>Live</h2>
+            <div class="kpis" id="kpis"></div>
+          </section>
+        </div>
+        <section class="card">
+          <div class="tabs" id="tabs"></div>
+          <div id="tab-charts" class="charts"></div>
+          <div id="tab-internals" class="tables" hidden></div>
+          <div id="tab-logs" class="logs" hidden>
+            <div><h2>Controller serial</h2><pre class="log" id="log-controller"></pre></div>
+            <div><h2>Display serial</h2><pre class="log" id="log-display"></pre></div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="dist/src/ui/app.js"></script>
+  </body>
+</html>

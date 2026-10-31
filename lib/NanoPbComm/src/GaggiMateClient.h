@@ -3,7 +3,11 @@
 
 #include "Endpoint.h"
 #include "GaggiMateComm.h"
+#ifdef GAGGIMATE_WASM
+#include <WasmBleTransport.h> // web simulator: same class, datagrams go to the host link model
+#else
 #include "ble/BleClientTransport.h"
+#endif
 #include <Arduino.h>
 #include <functional>
 

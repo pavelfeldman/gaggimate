@@ -1,0 +1,18 @@
+{
+  "name": "gaggimate-websim",
+  "private": true,
+  "type": "module",
+  "description": "GaggiMate display and controller firmware compiled to WebAssembly, running against a simulated espresso machine in the browser.",
+  "scripts": {
+    "build": "wasm/build.sh && tsc -p .",
+    "build:ts": "tsc -p .",
+    "watch": "tsc -p . --watch",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "tsc -p . && node --test test/*.test.mjs",
+    "start": "node scripts/serve.mjs",
+    "publish:pages": "scripts/publish-pages.sh"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}
